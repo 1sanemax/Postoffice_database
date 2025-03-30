@@ -48,7 +48,8 @@ Create a database named post_database:
 CREATE DATABASE post_database;
 Update the database credentials in the code if necessary (default: host=localhost, user=root, password=admin).
 Prepare CSV Files:
-Place your pincode and region CSV files in the directory: Change directory from D:/SEM6/DATASCIENCE/MINIPROJ/Regions and Pincodes/Pincodes and Regions/ to the directory it is saved.
+Place your pincode and region CSV files in the directory:
+Change directory from D:/SEM6/DATASCIENCE/MINIPROJ/Regions and Pincodes/Pincodes and Regions/ to the directory it is saved.
 The CSV files should have columns: SNO, Region, Pincodes.
 
 Run the Application:
