@@ -163,7 +163,7 @@ def setup_service_window(window, service_type, user):
         fields['weight'].grid(row=0, column=1, sticky='ew', padx=5, pady=2)
     
     # Submit Button
-    submit_btn = tk.Button(button_frame, text="Submit", command=lambda: submit_handler(fields, service_type, user))
+    submit_btn = tk.Button(button_frame, text="Submit", command=lambda: submit_handler(fields, service_type, user)) # type: ignore
     submit_btn.pack(pady=10)
     
     return fields
@@ -237,7 +237,6 @@ def create_submit_button(window, service_type, user, fields):
 
 def view_all_transactions():
     try:
-        # Database connection
         db = sql.connect(
             host='localhost',
             user='root',
@@ -246,7 +245,6 @@ def view_all_transactions():
         )
         cursor = db.cursor(dictionary=True)
         
-        # Fetch data with explicit column selection
         cursor.execute("""
             SELECT 
                 username, servicetype, 
@@ -259,18 +257,16 @@ def view_all_transactions():
             ORDER BY amount DESC
         """)
         
-        # Create admin window
         admin_window = tk.Toplevel()
-        admin_window.title("Admin View")
+        admin_window.title("Admin View - All Transactions")
         admin_window.geometry("1400x600")
         
-        # Configure Treeview
         tree = ttk.Treeview(admin_window)
         
-        # Define columns EXACTLY matching your SELECT query
+        # Define columns with adjusted width for service type
         columns = [
             ("Username", 100),
-            ("Service", 80),
+            ("Service Type", 150),  # Wider to accommodate priority info
             ("Sender", 120),
             ("Sender Phone", 100),
             ("Sender Address", 150),
@@ -281,16 +277,15 @@ def view_all_transactions():
             ("Receiver Address", 150),
             ("Receiver Area", 100),
             ("Receiver Pincode", 80),
-            ("Amount", 80)
+            ("Amount", 100)
         ]
         
-        # Configure columns
         tree["columns"] = [col[0] for col in columns]
         for col_name, width in columns:
             tree.column(col_name, width=width, anchor='center')
             tree.heading(col_name, text=col_name)
         
-        # Insert data
+        # Insert data - service type will show "Speedpost-Standard" etc.
         for row in cursor.fetchall():
             tree.insert("", "end", values=(
                 row['username'],
@@ -305,10 +300,9 @@ def view_all_transactions():
                 row['recieveraddress'],
                 row['recieverarea'],
                 row['recieverpincode'],
-                f"₹{row['amount']:.2f}"  # Format amount as currency
+                f"₹{row['amount']:.2f}"
             ))
         
-        # Add scrollbar
         scrollbar = ttk.Scrollbar(admin_window, orient="vertical", command=tree.yview)
         tree.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
@@ -1014,7 +1008,7 @@ def create_window(root, user, is_admin=False):  # mod: Added is_admin parameter
 
                 entry_stat = tk.Entry(another_frame, width=35, bg='#cecaca')
                 entry_stat.pack(pady=20, padx=10, ipadx=4)
-                entry_stat.bind('<Return>', stats_select)
+                entry_stat.bind('<Return>', stats_select) # type: ignore
 
                 csv_btn_all = tk.Button(another_frame, text='Save all records as csv file: ', width=20, height=1,
                     bg='light blue', activebackground='light blue',
@@ -1026,7 +1020,7 @@ def create_window(root, user, is_admin=False):  # mod: Added is_admin parameter
                     relief='solid', bd=1, command=save_csv_table)
                 csv_btn_table.pack(pady=20)
 
-                d_base.close()
+                d_base.close() # type: ignore
                 fourth.mainloop()
 
         trans_user_combo = ttk.Combobox(second, state='readonly', values=['< Select >','Post', 'Speedpost', 'Parcel'])
