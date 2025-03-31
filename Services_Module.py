@@ -237,6 +237,7 @@ def create_submit_button(window, service_type, user, fields):
 
 def view_all_transactions():
     try:
+        # Create a new database connection for this window
         db = sql.connect(
             host='localhost',
             user='root',
@@ -245,51 +246,88 @@ def view_all_transactions():
         )
         cursor = db.cursor(dictionary=True)
         
-        cursor.execute("""
+        # Store the connection and cursor in the window object
+        admin_window = tk.Toplevel()
+        admin_window.title("Admin View - All Transactions")
+        admin_window.geometry("1400x600")
+        admin_window.db = db  # Store connection
+        admin_window.cursor = cursor  # Store cursor
+        
+        # Load initial data
+        load_initial_data(admin_window)
+        
+        # Add cleanup handler when window closes
+        admin_window.protocol("WM_DELETE_WINDOW", lambda: on_admin_window_close(admin_window))
+        
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to load data: {str(e)}")
+        if 'db' in locals() and db.is_connected():
+            cursor.close()
+            db.close()
+
+def load_initial_data(window):
+    """Load initial transaction data into the treeview"""
+    try:
+        # Modified query to properly handle all service types including Speedpost variants
+        window.cursor.execute("""
             SELECT 
-                username, servicetype, 
+                username, 
+                servicetype,
                 sendername, senderphonenumber,
                 senderaddress, senderarea, senderpincode,
                 recievername, recieverphonenumber,
                 recieveraddress, recieverarea, recieverpincode,
-                amount
+                amount,
+                CASE 
+                    WHEN servicetype LIKE 'Speedpost%' THEN 'Speedpost'
+                    ELSE servicetype
+                END as base_service_type
             FROM admin
             ORDER BY amount DESC
         """)
         
-        admin_window = tk.Toplevel()
-        admin_window.title("Admin View - All Transactions")
-        admin_window.geometry("1400x600")
+        # Create treeview if it doesn't exist
+        if not hasattr(window, 'tree'):
+            window.tree = ttk.Treeview(window)
+            
+            # Define columns
+            columns = [
+                ("Username", 100),
+                ("Service Type", 150),
+                ("Base Service", 100),
+                ("Sender", 120),
+                ("Sender Phone", 100),
+                ("Sender Address", 150),
+                ("Sender Area", 100),
+                ("Sender Pincode", 80),
+                ("Receiver", 120),
+                ("Receiver Phone", 100),
+                ("Receiver Address", 150),
+                ("Receiver Area", 100),
+                ("Receiver Pincode", 80),
+                ("Amount", 100)
+            ]
+            
+            window.tree["columns"] = [col[0] for col in columns]
+            for col_name, width in columns:
+                window.tree.column(col_name, width=width, anchor='center')
+                window.tree.heading(col_name, text=col_name)
+            
+            scrollbar = ttk.Scrollbar(window, orient="vertical", command=window.tree.yview)
+            window.tree.configure(yscrollcommand=scrollbar.set)
+            scrollbar.pack(side="right", fill="y")
+            window.tree.pack(fill="both", expand=True)
         
-        tree = ttk.Treeview(admin_window)
+        # Clear existing data
+        for item in window.tree.get_children():
+            window.tree.delete(item)
         
-        # Define columns with adjusted width for service type
-        columns = [
-            ("Username", 100),
-            ("Service Type", 150),  # Wider to accommodate priority info
-            ("Sender", 120),
-            ("Sender Phone", 100),
-            ("Sender Address", 150),
-            ("Sender Area", 100),
-            ("Sender Pincode", 80),
-            ("Receiver", 120),
-            ("Receiver Phone", 100),
-            ("Receiver Address", 150),
-            ("Receiver Area", 100),
-            ("Receiver Pincode", 80),
-            ("Amount", 100)
-        ]
-        
-        tree["columns"] = [col[0] for col in columns]
-        for col_name, width in columns:
-            tree.column(col_name, width=width, anchor='center')
-            tree.heading(col_name, text=col_name)
-        
-        # Insert data - service type will show "Speedpost-Standard" etc.
-        for row in cursor.fetchall():
-            tree.insert("", "end", values=(
+        # Insert new data
+        for row in window.cursor.fetchall():
+            window.tree.insert("", "end", values=(
                 row['username'],
                 row['servicetype'],
+                row['base_service_type'],
                 row['sendername'],
                 row['senderphonenumber'],
                 row['senderaddress'],
@@ -303,45 +341,179 @@ def view_all_transactions():
                 f"₹{row['amount']:.2f}"
             ))
         
-        scrollbar = ttk.Scrollbar(admin_window, orient="vertical", command=tree.yview)
-        tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
-        tree.pack(fill="both", expand=True)
-        
+        # Add filtering capability
+        if not hasattr(window, 'filter_frame'):
+            window.filter_frame = tk.Frame(window)
+            window.filter_frame.pack(fill='x', padx=5, pady=5)
+            
+            tk.Label(window.filter_frame, text="Filter by Service Type:").pack(side='left')
+            
+            service_types = ["All", "Post", "Speedpost", "Parcel"]
+            window.filter_var = tk.StringVar(value="All")
+            
+            for stype in service_types:
+                rb = tk.Radiobutton(window.filter_frame, text=stype, 
+                                  variable=window.filter_var, value=stype,
+                                  command=lambda: filter_treeview(window))
+                rb.pack(side='left', padx=5)
+    
     except Exception as e:
         messagebox.showerror("Error", f"Failed to load data: {str(e)}")
-    finally:
-        if db.is_connected():
-            cursor.close()
-            db.close()
 
+def export_to_csv(tree):
+    """Export treeview data to CSV file"""
+    try:
+        # Get all items from treeview
+        items = tree.get_children()
+        if not items:
+            messagebox.showwarning("Warning", "No data to export")
+            return
+        
+        # Ask for save location
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv")],
+            title="Save as CSV"
+        )
+        if not filename:
+            return
+        
+        # Get headers and data
+        headers = [tree.heading(col)['text'] for col in tree['columns']]
+        data = []
+        for item in items:
+            data.append(tree.item(item)['values'])
+        
+        # Write to CSV
+        with open(filename, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(headers)
+            writer.writerows(data)
+            
+        messagebox.showinfo("Success", f"Data exported to {filename}")
+        
+    except Exception as e:
+        messagebox.showerror("Export Error", f"Failed to export: {str(e)}")
+        
+def on_window_close(window):
+    """Silent cleanup function"""
+    try:
+        if hasattr(window, 'cursor'):
+            window.cursor.close()
+        if hasattr(window, 'db') and window.db.is_connected():
+            window.db.close()
+    except Exception:
+        pass
+    finally:
+        window.destroy()
+        second.deiconify()
+            
+def filter_treeview(window):
+    """Filter the treeview based on selected service type"""
+    try:
+        filter_value = window.filter_var.get()
+        
+        # Clear existing data
+        for item in window.tree.get_children():
+            window.tree.delete(item)
+        
+        # Execute new query with filter
+        window.cursor.execute("""
+            SELECT * FROM admin
+            WHERE %s = 'All' OR 
+                  servicetype = %s OR 
+                  (servicetype LIKE 'Speedpost%%' AND %s = 'Speedpost')
+            ORDER BY amount DESC
+        """, (filter_value, filter_value, filter_value))
+        
+        # Insert filtered data
+        for row in window.cursor.fetchall():
+            base_type = 'Speedpost' if row['servicetype'].startswith('Speedpost') else row['servicetype']
+            window.tree.insert("", "end", values=(
+                row['username'],
+                row['servicetype'],
+                base_type,
+                row['sendername'],
+                row['senderphonenumber'],
+                row['senderaddress'],
+                row['senderarea'],
+                row['senderpincode'],
+                row['recievername'],
+                row['recieverphonenumber'],
+                row['recieveraddress'],
+                row['recieverarea'],
+                row['recieverpincode'],
+                f"₹{row['amount']:.2f}"
+            ))
+    
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to filter data: {str(e)}")
+
+def on_admin_window_close(window):
+    """Clean up database resources when window closes"""
+    try:
+        if hasattr(window, 'cursor'):
+            window.cursor.close()
+        if hasattr(window, 'db') and window.db.is_connected():
+            window.db.close()
+    except Exception as e:
+        print(f"Error closing database resources: {str(e)}")
+    finally:
+        window.destroy()
 def security_timeout(window):  # mod: New function
     window.destroy()
     messagebox.showinfo("Session Expired", "Admin session timed out after 30 minutes")
 
-def on_view_close(window, db):  # mod: New function
-    if db.is_connected():
-        db.close()
-    window.destroy()
-
-def export_transactions(transactions):  # mod: New function
+def on_view_close(window):
+    """Clean up resources when window closes"""
     try:
+        if hasattr(window, 'cursor'):
+            window.cursor.close()
+        if hasattr(window, 'db') and window.db.is_connected():
+            window.db.close()
+    except Exception as e:
+        print(f"Error closing resources: {str(e)}")
+    finally:
+        window.destroy()
+        second.deiconify()
+
+def export_transactions(tree):
+    """Export transactions to CSV file"""
+    try:
+        # Get all items from the treeview
+        items = tree.get_children()
+        if not items:
+            messagebox.showwarning("Warning", "No transactions to export")
+            return
+
+        # Ask user for save location
         filename = filedialog.asksaveasfilename(
             defaultextension=".csv",
             filetypes=[("CSV files", "*.csv")],
             title="Save transactions as"
         )
-        if not filename:
+        
+        if not filename:  # User cancelled
             return
+
+        # Get column headers
+        columns = tree['columns']
+        headers = [tree.heading(col)['text'] for col in columns]
+
+        # Write to CSV
+        with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
             
-        with open(filename, 'w', newline='') as csvfile:
-            fieldnames = ['transaction_id', 'user_name', 'service_type',
-                        'sender_area', 'receiver_area', 'total_amount', 'transaction_time']
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(transactions)
+            # Write headers
+            writer.writerow(headers)
+            
+            # Write data rows
+            for item in items:
+                values = tree.item(item)['values']
+                writer.writerow(values)
             
         messagebox.showinfo("Success", f"Transactions exported to {filename}")
+        
     except Exception as e:
         messagebox.showerror("Export Error", f"Failed to export: {str(e)}")
 
@@ -708,85 +880,187 @@ def create_window(root, user, is_admin=False):  # mod: Added is_admin parameter
 
         def selected_combo(event):
             if trans_user_combo.get() == '< Select >':
-                messagebox.showerror('Error', 'Choose database first')
-                return
+                return  # Silently return if nothing selected
 
             second.withdraw()
             fourth = tk.Toplevel()
-            fourth.config(bg='#404040')
             fourth.title(f'{trans_user_combo.get()} Transactions')
+            fourth.configure(bg='white')
             
-            # Window sizing
+            # Window sizing and positioning
             win_width = 1500
             win_height = 600
-            x = (second.winfo_screenwidth()/2) - (win_width/2)
-            y = (second.winfo_screenheight()/2) - (win_height/2)
-            fourth.geometry(f'{win_width}x{win_height}+{int(x)}+{int(y)}')
-            # Add this right before your treeview creation code:
-            def export_to_csv():
-                try:
-                    # Ask user for save location
-                    file_path = filedialog.asksaveasfilename(
-                        defaultextension=".csv",
-                        filetypes=[("CSV files", "*.csv")],
-                        title="Save transaction data as"
-                    )
-                    
-                    if not file_path:  # User cancelled
-                        return
-                        
-                    # Write to CSV
-                    with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
-                        writer = csv.writer(csvfile)
-                        
-                        # Write headers
-                        headers = [
-                            "User ID", "User Name", "Service Type",
-                            "Sender Name", "Sender Phone", "Sender Address",
-                            "Sender Area", "Sender Pincode",
-                            "Receiver Name", "Receiver Phone", "Receiver Address",
-                            "Receiver Area", "Receiver Pincode",
-                            "Transaction Time", "Amount"
-                        ]
-                        writer.writerow(headers)
-                        
-                        # Write data
-                        for row in data_retr:
-                            writer.writerow([
-                                row[0], row[1], row[2],  # User details
-                                row[3], row[4], row[5], row[6], row[7],  # Sender
-                                row[8], row[9], row[10], row[11], row[12],  # Receiver
-                                row[13].strftime("%Y-%m-%d %H:%M:%S"),  # Formatted time
-                                f"{row[14]:.2f}" if row[14] else "0.00"  # Amount
-                            ])
-                            
-                    messagebox.showinfo("Success", f"Data exported to:\n{file_path}")
-                    
-                except Exception as e:
-                    messagebox.showerror("Export Error", f"Failed to export:\n{str(e)}")
+            x = (second.winfo_screenwidth()//2) - (win_width//2)
+            y = (second.winfo_screenheight()//2) - (win_height//2)
+            fourth.geometry(f'{win_width}x{win_height}+{x}+{y}')
+
+            # Configure grid layout for main window
+            fourth.grid_rowconfigure(0, weight=1)
+            fourth.grid_columnconfigure(0, weight=1)
+
+            try:
+                # Database connection
+                db = sql.connect(
+                    host='localhost',
+                    user='root',
+                    passwd='admin',
+                    database='post_database'
+                )
+                cursor = db.cursor(dictionary=True)
+                
+                # Store connection in window
+                fourth.db = db
+                fourth.cursor = cursor
+
+                # Main container frame using grid
+                main_frame = tk.Frame(fourth, bg='white')
+                main_frame.grid(row=0, column=0, sticky='nsew', padx=10, pady=10)
+                
+                # Configure grid weights for main frame
+                main_frame.grid_rowconfigure(0, weight=1)  # Treeview row
+                main_frame.grid_rowconfigure(1, weight=0)  # Button row
+                main_frame.grid_columnconfigure(0, weight=1)
+
+                # Create Treeview
+                tree = ttk.Treeview(
+                    main_frame,
+                    columns=(
+                        "Username", "Service Type",
+                        "Sender Name", "Sender Phone", "Sender Address",
+                        "Sender Area", "Sender Pincode",
+                        "Receiver Name", "Receiver Phone", "Receiver Address",
+                        "Receiver Area", "Receiver Pincode",
+                        "Amount"
+                    ),
+                    show='headings',
+                    style='White.Treeview'
+                )
+                
+                # Configure style
+                style = ttk.Style()
+                style.configure('White.Treeview', 
+                            background='white',
+                            fieldbackground='white',
+                            borderwidth=0)
+                style.configure('White.Treeview.Heading', 
+                            background='white',
+                            relief='flat')
+
+                # Define and configure columns
+                columns = [
+                    ("Username", 120, 'e'),
+                    ("Service Type", 150, 'e'),
+                    ("Sender Name", 150, 'e'),
+                    ("Sender Phone", 100, 'e'),
+                    ("Sender Address", 150, 'e'),
+                    ("Sender Area", 100, 'e'),
+                    ("Sender Pincode", 80, 'e'),
+                    ("Receiver Name", 150, 'e'),
+                    ("Receiver Phone", 100, 'e'),
+                    ("Receiver Address", 150, 'e'),
+                    ("Receiver Area", 100, 'e'),
+                    ("Receiver Pincode", 80, 'e'),
+                    ("Amount", 100, 'e')
+                ]
+                
+                for col_name, width, anchor in columns:
+                    tree.column(col_name, width=width, anchor=anchor)
+                    tree.heading(col_name, text=col_name)
+
+                # Create and place scrollbars using grid
+                y_scroll = ttk.Scrollbar(main_frame, orient='vertical', command=tree.yview)
+                x_scroll = ttk.Scrollbar(main_frame, orient='horizontal', command=tree.xview)
+                tree.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
+
+                # Grid layout for treeview and scrollbars
+                tree.grid(row=0, column=0, sticky='nsew')
+                y_scroll.grid(row=0, column=1, sticky='ns')
+                x_scroll.grid(row=1, column=0, sticky='ew')
+
+                # Button frame using grid
+                button_frame = tk.Frame(main_frame, bg='white')
+                button_frame.grid(row=2, column=0, columnspan=2, pady=(10, 0), sticky='ew')
+                
+                # Configure button frame columns
+                button_frame.grid_columnconfigure(0, weight=1)
+                button_frame.grid_columnconfigure(1, weight=1)
+
+                # Back button using grid
+                tk.Button(
+                    button_frame,
+                    text="← Back",
+                    command=lambda: [fourth.destroy(), second.deiconify()],
+                    bg='#f44336',
+                    fg='white'
+                ).grid(row=0, column=0, padx=5, sticky='w')
+
+                # Export button using grid
+                tk.Button(
+                    button_frame,
+                    text="Export to CSV",
+                    command=lambda: export_to_csv(tree),
+                    bg='#4CAF50',
+                    fg='white',
+                    padx=15
+                ).grid(row=0, column=1, padx=5, sticky='e')
+
+                # Load data
+                service_type = trans_user_combo.get()
+                query = """
+                    SELECT * FROM admin 
+                    WHERE servicetype LIKE %s
+                    ORDER BY amount DESC
+                """
+                pattern = 'Speedpost%' if service_type == 'Speedpost' else service_type
+                cursor.execute(query, (pattern,))
+                
+                # Insert data into treeview
+                for row in cursor.fetchall():
+                    tree.insert("", "end", values=(
+                        row.get('username', ''),
+                        row.get('servicetype', ''),
+                        row.get('sendername', ''),
+                        row.get('senderphonenumber', ''),
+                        row.get('senderaddress', ''),
+                        row.get('senderarea', ''),
+                        row.get('senderpincode', ''),
+                        row.get('recievername', ''),
+                        row.get('recieverphonenumber', ''),
+                        row.get('recieveraddress', ''),
+                        row.get('recieverarea', ''),
+                        row.get('recieverpincode', ''),
+                        f"₹{row.get('amount', 0):.2f}" if row.get('amount') else "₹0.00"
+                    ))
+
+                # Cleanup handler
+                fourth.protocol("WM_DELETE_WINDOW", lambda: on_window_close(fourth))
+                
+            except Exception:
+                if 'fourth' in locals():
+                    on_window_close(fourth)
 
             # Add to your existing button frame (create if needed)
-            button_frame = tk.Frame(fourth, bg='#404040')
-            button_frame.pack(fill='x', pady=(0, 10))
+            #button_frame = tk.Frame(fourth, bg='#404040')
+            #button_frame.pack(fill='x', pady=(0, 10))
             
             # Back Button
-            tk.Button(
+            '''tk.Button(
                 button_frame,
                 text="← Back",
                 command=lambda: [fourth.destroy(), second.deiconify()],
                 bg='#f44336',
                 fg='white'
-            ).pack(side='left', padx=10)
+            ).pack(side='left', padx=10)'''
             
             # Export CSV Button
-            tk.Button(
+            '''tk.Button(
                 button_frame,
                 text="Export to CSV",
-                command=export_to_csv,
+                command=lambda: export_transactions(tree),  # Pass the treeview object
                 bg='#4CAF50',
                 fg='white',
                 padx=15
-            ).pack(side='right', padx=10)
+            ).pack(side='right', padx=10)'''
             # Database connection
             try:
                 db = sql.connect(
@@ -808,8 +1082,8 @@ def create_window(root, user, is_admin=False):  # mod: Added is_admin parameter
                         transaction_time, total_amount
                     FROM Transaction_details 
                     WHERE service_type=%s
-                    ORDER BY transaction_time DESC
-                ''', (trans_user_combo.get(),))
+                    ORDER BY transaction_time DESC'''
+                , (trans_user_combo.get(),))
                 
                 data_retr = cursor.fetchall()
 
