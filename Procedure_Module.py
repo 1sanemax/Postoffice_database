@@ -279,7 +279,19 @@ def parcel_proc(root, second, user):
                     if not field.get().strip():
                         raise ValueError(f"Please fill all {field_type} details")
             
-            # Prepare transaction data
+            # Validate weight and dimensions
+            try:
+                weight = float(weight_entry.get())
+                length = float(length_entry.get())
+                width = float(width_entry.get())
+                height = float(height_entry.get())
+                
+                if weight <= 0 or length <= 0 or width <= 0 or height <= 0:
+                    raise ValueError("All values must be positive numbers")
+            except ValueError as e:
+                raise ValueError(f"Invalid parcel details: {str(e)}")
+            
+            # Prepare transaction data - ensure this matches Repository.py expectations
             transaction_data = {
                 'user_name': user,
                 'service_type': 'Parcel',
@@ -293,39 +305,21 @@ def parcel_proc(root, second, user):
                 'receiver_address': receiver_fields['address'].get().strip(),
                 'receiver_area': receiver_fields['area'].get().strip(),
                 'receiver_pincode': receiver_fields['pincode'].get().strip(),
-                'weight_kg': float(weight_entry.get()),
-                'dimensions': f"{length_entry.get()}x{width_entry.get()}x{height_entry.get()}",
+                'weight_kg': weight,
+                'dimensions': f"{length}x{width}x{height}",
                 'fragile': bool(fragile_var.get()),
                 'speed_delivery': bool(speed_var.get()),
-                'vpp': bool(vpp_var.get())
+                'vpp': bool(vpp_var.get()),
+                'base_amount': main_win.calculated_amount / 1.18,  # Remove GST for base amount
+                'total_amount': main_win.calculated_amount
             }
-
-            # Add calculated amount if available
-            if hasattr(main_win, 'calculated_amount'):
-                transaction_data['total_amount'] = main_win.calculated_amount
-            else:
-                raise ValueError("Please calculate the amount first!")
         
             # Save to both tables
             if save_transaction(transaction_data):
-                # Also save to admin table
-                admin_data = {
-                    'username': user,
-                    'servicetype': 'Parcel',
-                    'sendername': sender_fields['name'].get().strip(),
-                    'senderphonenumber': sender_fields['phone'].get().strip(),
-                    'senderaddress': sender_fields['address'].get().strip(),
-                    'senderarea': sender_fields['area'].get().strip(),
-                    'senderpincode': sender_fields['pincode'].get().strip(),
-                    'recievername': receiver_fields['name'].get().strip(),
-                    'recieverphonenumber': receiver_fields['phone'].get().strip(),
-                    'recieveraddress': receiver_fields['address'].get().strip(),
-                    'recieverarea': receiver_fields['area'].get().strip(),
-                    'recieverpincode': receiver_fields['pincode'].get().strip(),
-                    'amount': main_win.calculated_amount
-                }
-                save_to_admin_table(admin_data)
-            
+                messagebox.showinfo("Success", "Parcel transaction saved successfully!")
+                # Clear form or close window as needed
+                main_win.destroy()
+                
         except ValueError as e:
             messagebox.showerror("Input Error", str(e))
         except Exception as e:
