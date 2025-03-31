@@ -21,19 +21,19 @@ def save_to_admin_table(data):
                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
         
         values = (
-            data['user_name'],
-            data['service_type'],
-            data['sender_name'],
-            data['sender_phone'],
-            data['sender_address'],
-            data['sender_area'],
-            data['sender_pincode'],
-            data['receiver_name'],
-            data['receiver_phone'],
-            data['receiver_address'],
-            data['receiver_area'],
-            data['receiver_pincode'],
-            data.get('amount', 0)  # Default to 0 if not provided
+            data['username'],
+            data['servicetype'],  # This should already include the priority
+            data['sendername'],
+            data['senderphonenumber'],
+            data['senderaddress'],
+            data['senderarea'],
+            data['senderpincode'],
+            data['recievername'],
+            data['recieverphonenumber'],
+            data['recieveraddress'],
+            data['recieverarea'],
+            data['recieverpincode'],
+            data.get('amount', 0)
         )
         cursor.execute(query, values)
         db.commit()
@@ -58,6 +58,11 @@ def save_transaction(transaction_data):
         )
         cursor = db.cursor()
         
+        # Handle Speedpost priority
+        service_type = transaction_data['service_type']
+        if service_type == 'Speedpost' and 'delivery_priority' in transaction_data:
+            service_type = f"Speedpost-{transaction_data['delivery_priority']}"
+        
         query = """INSERT INTO Transaction_details 
                   (user_id, user_name, service_type, 
                   sender_name, sender_phone, sender_address, sender_area, sender_pincode,
@@ -69,16 +74,16 @@ def save_transaction(transaction_data):
         values = (
             transaction_data.get('user_id', ''),
             transaction_data['user_name'],
-            transaction_data['service_type'],
+            service_type,  # This now includes priority for Speedpost
             transaction_data['sender_name'],
             transaction_data['sender_phone'],
             transaction_data['sender_address'],
-            transaction_data['sender_area'],  # Now included
+            transaction_data['sender_area'],
             transaction_data['sender_pincode'],
             transaction_data['receiver_name'],
             transaction_data['receiver_phone'],
             transaction_data['receiver_address'],
-            transaction_data['receiver_area'],  # Now included
+            transaction_data['receiver_area'],
             transaction_data['receiver_pincode'],
             transaction_data.get('weight_kg', 0),
             transaction_data.get('dimensions', ''),
@@ -91,6 +96,27 @@ def save_transaction(transaction_data):
         
         cursor.execute(query, values)
         db.commit()
+        
+        # Prepare data for admin table
+        admin_data = {
+            'username': transaction_data['user_name'],
+            'servicetype': service_type,  # Use the same formatted service type
+            'sendername': transaction_data['sender_name'],
+            'senderphonenumber': transaction_data['sender_phone'],
+            'senderaddress': transaction_data['sender_address'],
+            'senderarea': transaction_data['sender_area'],
+            'senderpincode': transaction_data['sender_pincode'],
+            'recievername': transaction_data['receiver_name'],
+            'recieverphonenumber': transaction_data['receiver_phone'],
+            'recieveraddress': transaction_data['receiver_address'],
+            'recieverarea': transaction_data['receiver_area'],
+            'recieverpincode': transaction_data['receiver_pincode'],
+            'amount': transaction_data.get('total_amount', 0)
+        }
+        
+        # Save to admin table
+        save_to_admin_table(admin_data)
+        
         return True
         
     except sql.Error as err:
