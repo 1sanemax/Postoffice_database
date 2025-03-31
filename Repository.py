@@ -58,11 +58,12 @@ def save_transaction(transaction_data):
         )
         cursor = db.cursor()
         
-        # Handle Speedpost priority
+        # Handle Speedpost priority - ensure consistent formatting
         service_type = transaction_data['service_type']
         if service_type == 'Speedpost' and 'delivery_priority' in transaction_data:
             service_type = f"Speedpost-{transaction_data['delivery_priority']}"
         
+        # Insert into Transaction_details
         query = """INSERT INTO Transaction_details 
                   (user_id, user_name, service_type, 
                   sender_name, sender_phone, sender_address, sender_area, sender_pincode,
@@ -74,7 +75,7 @@ def save_transaction(transaction_data):
         values = (
             transaction_data.get('user_id', ''),
             transaction_data['user_name'],
-            service_type,  # This now includes priority for Speedpost
+            service_type,
             transaction_data['sender_name'],
             transaction_data['sender_phone'],
             transaction_data['sender_address'],
@@ -97,10 +98,10 @@ def save_transaction(transaction_data):
         cursor.execute(query, values)
         db.commit()
         
-        # Prepare data for admin table
+        # Prepare data for admin table - ensure consistent service_type
         admin_data = {
             'username': transaction_data['user_name'],
-            'servicetype': service_type,  # Use the same formatted service type
+            'servicetype': service_type,  # Use the formatted service type
             'sendername': transaction_data['sender_name'],
             'senderphonenumber': transaction_data['sender_phone'],
             'senderaddress': transaction_data['sender_address'],
