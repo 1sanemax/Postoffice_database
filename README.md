@@ -2,6 +2,7 @@
 
 ## Overview
 The **Postal Service Management System** is a desktop application designed to manage postal transactions including Post, Speedpost, and Parcel services. Built with Python, it leverages Tkinter for the GUI and MySQL for database management. The system supports user registration, login, transaction processing, and administrative functions such as viewing all transactions and editing user data.
+
 📌 Note: Currently, this dataset includes information for the regions of Tamil Nadu only.
 
 This project was developed as a mini-project and demonstrates the integration of a relational database with a user-friendly interface for managing postal services.
