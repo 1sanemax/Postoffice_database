@@ -558,7 +558,7 @@ def speedpost_proc(root, second, user):
     weight_entry.grid(row=0, column=1, sticky='w', padx=5, pady=2)
     
     tk.Label(service_frame, text="Delivery Priority:", bg='white').grid(row=1, column=0, sticky='e', padx=5, pady=2)
-    priority_var = tk.StringVar(value="Standard")
+    priority_var = tk.StringVar(value="Standard")  # Make sure this is created
     priorities = ["Standard", "Express", "Overnight"]
     priority_menu = tk.OptionMenu(service_frame, priority_var, *priorities)
     priority_menu.config(bg='#cecaca')
@@ -613,6 +613,8 @@ def speedpost_proc(root, second, user):
             if not hasattr(speedpost_win, 'calculated_amount'):
                 raise ValueError("Please calculate the amount first")
             
+            priority = priority_var.get()
+            
             transaction_data = {
                 'user_name': user,
                 'service_type': 'Speedpost',
@@ -626,9 +628,9 @@ def speedpost_proc(root, second, user):
                 'receiver_address': receiver_entries[2].get().strip(),
                 'receiver_area': receiver_entries[3].get().strip(),
                 'receiver_pincode': receiver_entries[4].get().strip(),
-                'weight_grams': float(weight_entry.get()),
-                'delivery_priority': priority_var.get(),
-                'base_amount': round(speedpost_win.calculated_amount / 1.18, 2),  # Pre-GST amount
+                'weight_kg': float(weight_entry.get()) / 1000,  # Convert grams to kg
+                'delivery_priority': priority,
+                'base_amount': round(speedpost_win.calculated_amount / 1.18, 2),
                 'total_amount': speedpost_win.calculated_amount
             }
             
