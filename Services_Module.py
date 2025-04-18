@@ -240,8 +240,8 @@ def view_all_transactions():
         # Create a new database connection for this window
         db = sql.connect(
             host='localhost',
-            user='root',
-            passwd='admin',
+            user = '**',#replace with your username
+	        passwd = '**',#replace with your password
             database='post_database'
         )
         cursor = db.cursor(dictionary=True)
@@ -561,8 +561,8 @@ def create_window(root, user, is_admin=False):  # mod: Added is_admin parameter
 
         database = sql.connect(
             host='localhost',
-            user='root',
-            passwd='admin',
+            user = '**',#replace with your username
+	        passwd = '**',#replace with your password
             database='post_database'
             )
 
@@ -721,8 +721,8 @@ def create_window(root, user, is_admin=False):  # mod: Added is_admin parameter
 
                 database = sql.connect(
                     host='localhost',
-                    user='root',
-                    passwd='admin',
+                    user = '**',#replace with your username
+	                passwd = '**',#replace with your password
                     database='post_database'
                     )
 
@@ -754,8 +754,8 @@ def create_window(root, user, is_admin=False):  # mod: Added is_admin parameter
 
             database = sql.connect(
                 host='localhost',
-                user='root',
-                passwd='admin',
+                user = '**',#replace with your username
+	            passwd = '**',#replace with your password
                 database='post_database'
                 )
 
@@ -837,7 +837,7 @@ def create_window(root, user, is_admin=False):  # mod: Added is_admin parameter
         def selected_combo():
             pass
 
-    if user=='root' or is_admin:  # mod: Added is_admin check
+    if user=='root' or is_admin:  # mod: Added is_admin check instead of "root replace with your username
         win_width = 900
         win_height = 600
 
@@ -902,8 +902,8 @@ def create_window(root, user, is_admin=False):  # mod: Added is_admin parameter
                 # Database connection
                 db = sql.connect(
                     host='localhost',
-                    user='root',
-                    passwd='admin',
+                    user = '**',#replace with your username
+	                passwd = '**',#replace with your password
                     database='post_database'
                 )
                 cursor = db.cursor(dictionary=True)
@@ -1065,8 +1065,8 @@ def create_window(root, user, is_admin=False):  # mod: Added is_admin parameter
             try:
                 db = sql.connect(
                     host='localhost',
-                    user='root',
-                    passwd='admin',
+                    user = '**',#replace with your username
+	                passwd = '**',#replace with your password
                     database='post_database'
                 )
                 cursor = db.cursor()
@@ -1347,8 +1347,8 @@ def create_window(root, user, is_admin=False):  # mod: Added is_admin parameter
 
             database = sql.connect(
                 host='localhost',
-                user='root',
-                passwd='admin',
+                user = '**',#replace with your username
+	            passwd = '**',#replace with your password
                 database='post_database'
                 )
 
