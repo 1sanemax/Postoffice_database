@@ -7,8 +7,8 @@ def save_to_admin_table(data):
     try:
         db = sql.connect(
             host='localhost',
-            user='root',
-            passwd='admin',
+            user = '**',#replace with your username
+	        passwd = '**',#replace with your password
             database='post_database'
         )
         cursor = db.cursor()
@@ -52,8 +52,8 @@ def save_transaction(transaction_data):
     try:
         db = sql.connect(
             host='localhost',
-            user='root',
-            passwd='admin',
+            user = '**',#replace with your username
+	        passwd = '**',#replace with your password
             database='post_database'
         )
         cursor = db.cursor()
@@ -274,8 +274,8 @@ def update_entry(user, event, username_entry, userpassword_entry, usercity_entry
 
     database = sql.connect(
         host='localhost',
-        user='root',
-        passwd='admin',
+        user = '**',#replace with your username
+	    passwd = '**',#replace with your password
         database='post_database'
         )
 
