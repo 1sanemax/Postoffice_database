@@ -11,8 +11,9 @@ from Repository import entry_func_repo
 
 database = sql.connect(
     host='localhost',
-    user='root',
-    passwd='admin')
+    user = '**',#replace with your username
+	passwd = '**',#replace with your password
+)
 
 mycursor = database.cursor()
 mycursor.execute('USE post_database')
@@ -118,8 +119,8 @@ def submit_signup(event):
         # Database operations
         database = sql.connect(
             host='localhost',
-            user='root',
-            passwd='admin',
+            user = '**',#replace with your username
+	        passwd = '**',#replace with your password,
             database='post_database')  # Connect directly to the database
             
         mycursor = database.cursor()
@@ -268,8 +269,8 @@ def submit_login(event):
 
     database = sql.connect(
         host = 'localhost',
-        user = 'root',
-        passwd = 'admin')
+        user = '**',#replace with your username
+	    passwd = '**',#replace with your password)
 
     mycursor = database.cursor()
     mycursor.execute('USE post_database')
